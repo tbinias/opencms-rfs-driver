@@ -1,6 +1,6 @@
-/*  
+/*
     Copyright (c) Stephan Hartmann (www.metamesh.de)
-    
+
     This file is part of Metamesh's RFS driver for OpenCms.
 
     Metamesh's RFS driver for OpenCms is free software: you can redistribute it and/or modify
@@ -14,7 +14,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with Metamesh's RFS driver for OpenCms. 
+    along with Metamesh's RFS driver for OpenCms.
     If not, see <http://www.gnu.org/licenses/>.
 
     Diese Datei ist Teil von Metamesh's RFS Treiber für OpenCms.
@@ -51,7 +51,7 @@ import com.metamesh.opencms.rfs.driver.MappingData;
 public class ManifestParser extends DefaultHandler {
 
   private MappingData md;
-  
+
   private File baseFolder;
   private Map<String, Object> currentFile;
   private Map<String, String> currentProperties;
@@ -73,26 +73,26 @@ public class ManifestParser extends DefaultHandler {
   private static final String TAG_PROPERTY = "property";
 
   private static final String TAG_MODULE = "module";
-  
+
   private static final String[] BODY_TAGS_ARRAY = {TAG_SOURCE,
     TAG_DESTINATION, TAG_UUIDRESOURCE, TAG_UUIDSTRUCTURE, TAG_TYPE,
     TAG_FLAGS, TAG_NAME, TAG_VALUE
   };
-  
+
   private static final String[] FILE_ATTR_TAGS_ARRAY = {TAG_SOURCE,
     TAG_DESTINATION, TAG_UUIDRESOURCE, TAG_UUIDSTRUCTURE, TAG_TYPE,
     TAG_FLAGS
   };
-  
+
   private static final Collection<String> BODY_TAGS = Arrays.asList(BODY_TAGS_ARRAY);
-  
+
   private static final Collection<String> FILE_ATTR_TAGS = Arrays.asList(FILE_ATTR_TAGS_ARRAY);
 
   public ManifestParser(File baseFolder, MappingData md) {
     this.baseFolder = baseFolder;
     this.md = md;
   }
-  
+
   @Override
   public void startElement(String uri, String localName, String qName,
       Attributes attributes) throws SAXException {
@@ -117,13 +117,16 @@ public class ManifestParser extends DefaultHandler {
       bob.append(ch, start, length);
     }
   }
-  
+
   @Override
   public void endElement(String uri, String localName, String qName)
       throws SAXException {
     if (TAG_FILE.equals(localName)) {
-      md.addManifestEntry(currentFile);
-      currentFile = null;
+        String destination = (String) currentFile.get(TAG_DESTINATION);
+        //if (!"system".equals(destination) && !"system/modules".equals(destination)) {
+            md.addManifestEntry(currentFile);
+        //}
+        currentFile = null;
     }
     else if (FILE_ATTR_TAGS.contains(localName)) {
       if (currentFile != null) {
@@ -149,5 +152,5 @@ public class ManifestParser extends DefaultHandler {
     }
   }
 
-  
+
 }
