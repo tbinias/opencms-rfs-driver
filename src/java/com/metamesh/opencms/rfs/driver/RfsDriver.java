@@ -1,6 +1,6 @@
-/*  
+/*
     Copyright (c) Stephan Hartmann (www.metamesh.de)
-    
+
     This file is part of Metamesh's RFS driver for OpenCms.
 
     Metamesh's RFS driver for OpenCms is free software: you can redistribute it and/or modify
@@ -14,7 +14,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with Metamesh's RFS driver for OpenCms. 
+    along with Metamesh's RFS driver for OpenCms.
     If not, see <http://www.gnu.org/licenses/>.
 
     Diese Datei ist Teil von Metamesh's RFS Treiber für OpenCms.
@@ -39,6 +39,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -62,36 +64,36 @@ import com.metamesh.opencms.driver.VfsDriverWrapper;
 import com.metamesh.opencms.rfs.file.RfsCmsFolder;
 
 public class RfsDriver extends VfsDriverWrapper {
-  
+
   private boolean initialized = false;
-  
+
   private static String rfsBasePath = null;
-  
+
   private static CmsParameterConfiguration config = null;
-  
+
   private static CmsConfigurationManager configurationManager;
-  
+
   private RfsDriverService service;
-  
+
   @Override
   public List<CmsResource> readChildResources(CmsDbContext dbc,
       CmsProject currentProject, CmsResource resource, boolean getFolders,
       boolean getFiles) throws CmsDataAccessException {
-    
+
     List<CmsResource> vfsChildren = nextDriver.readChildResources(dbc, currentProject, resource, getFolders,
         getFiles);
-    
+
     if (!isInitialized()) return vfsChildren;
-    
+
     Set<String> vfsPaths = new java.util.HashSet<String>(vfsChildren.size());
     for (CmsResource vfsChild: vfsChildren) {
       vfsPaths.add(vfsChild.getRootPath());
     }
-    
+
     if (resource instanceof RfsCmsFolder) {
       return service.getChildResources(resource, getFolders, getFiles);
     }
-    
+
     else if (service.hasChildrenForResource(resource)) {
       List<CmsResource> rfsChildren = service.getChildResources(resource, getFolders, getFiles);
       ArrayList<CmsResource> result = new ArrayList<CmsResource>(vfsChildren.size() + rfsChildren.size());
@@ -100,9 +102,9 @@ public class RfsDriver extends VfsDriverWrapper {
           result.add(rfsChild);
         }
       }
-      
+
       result.addAll(vfsChildren);
-      
+
       Collections.sort(result, CmsResource.COMPARE_ROOT_PATH_IGNORE_CASE_FOLDERS_FIRST);
       return result;
     }
@@ -114,9 +116,9 @@ public class RfsDriver extends VfsDriverWrapper {
   @Override
   public byte[] readContent(CmsDbContext dbc, CmsUUID projectId,
       CmsUUID resourceId) throws CmsDataAccessException {
-    
+
     if (!isInitialized()) return super.readContent(dbc, projectId, resourceId);
-    
+
     if (service.isRfsResourceId(resourceId)) {
       CmsResource file = service.getResourceByResourceId(resourceId);
       if (file.isFile()) {
@@ -130,9 +132,9 @@ public class RfsDriver extends VfsDriverWrapper {
   @Override
   public CmsFolder readFolder(CmsDbContext dbc, CmsUUID projectId,
       CmsUUID folderId) throws CmsDataAccessException {
-    
+
     if (!isInitialized()) return super.readFolder(dbc, projectId, folderId);
-      
+
     if (service.isRfsStructureId(folderId)) {
       return (CmsFolder)service.getResourceByStructureId(folderId);
     }
@@ -144,9 +146,9 @@ public class RfsDriver extends VfsDriverWrapper {
   @Override
   public CmsFolder readFolder(CmsDbContext dbc, CmsUUID projectId,
       String foldername) throws CmsDataAccessException {
-    
+
     if (!isInitialized()) return super.readFolder(dbc, projectId, foldername);
-    
+
     // vfs resources go first
     try {
       return super.readFolder(dbc, projectId, foldername);
@@ -164,7 +166,7 @@ public class RfsDriver extends VfsDriverWrapper {
       CmsUUID structureId) throws CmsDataAccessException {
 
     if (!isInitialized()) return super.readParentFolder(dbc, projectId, structureId);
-    
+
 
     if (service.isRfsStructureId(structureId)) {
       CmsResource res = service.getResourceByStructureId(structureId);
@@ -175,7 +177,7 @@ public class RfsDriver extends VfsDriverWrapper {
       catch (CmsDataAccessException cdae) {
         if (service.isRfsResource(parentPath))
           return (CmsFolder)service.getResourceByPath(parentPath);
-        
+
         throw cdae;
       }
     }
@@ -186,9 +188,9 @@ public class RfsDriver extends VfsDriverWrapper {
   public CmsResource readResource(CmsDbContext dbc, CmsUUID projectId,
       CmsUUID structureId, boolean includeDeleted)
       throws CmsDataAccessException {
-    
+
     if (!isInitialized()) return super.readResource(dbc, projectId, structureId, includeDeleted);
-      
+
     if (service.isRfsStructureId(structureId)) {
       return service.getResourceByStructureId(structureId);
     }
@@ -198,15 +200,27 @@ public class RfsDriver extends VfsDriverWrapper {
   @Override
   public CmsResource readResource(CmsDbContext dbc, CmsUUID projectId,
       String filename, boolean includeDeleted) throws CmsDataAccessException {
-    
+
     if (!isInitialized()) return super.readResource(dbc, projectId, filename, includeDeleted);
-      
+
     // vfs resources go first
-    
+
     try {
       return super.readResource(dbc, projectId, filename, includeDeleted);
     }
     catch (CmsDataAccessException cdae) {
+        /*
+        String weakLinkPrefix = "%(link.weak:";
+        if (filename.contains(weakLinkPrefix)) {
+            filename = filename.substring(filename.indexOf(weakLinkPrefix) + weakLinkPrefix.length());
+            if (filename.contains(":")) {
+                filename = filename.substring(0, filename.indexOf(":"));
+            }
+            if (filename.endsWith(")")) {
+                filename = filename.substring(0, filename.length() - 1);
+            }
+        }*/
+
       if (service.isRfsResource(filename)) {
         return service.getResourceByPath(filename);
       }
@@ -217,9 +231,9 @@ public class RfsDriver extends VfsDriverWrapper {
   @Override
   public CmsProperty readPropertyObject(CmsDbContext dbc, String key,
       CmsProject project, CmsResource resource) throws CmsDataAccessException {
-    
+
     if (!isInitialized()) return super.readPropertyObject(dbc, key, project, resource);
-      
+
     if (service.isRfsStructureId(resource.getStructureId())) {
       return service.getProperty(resource, key);
     }
@@ -229,15 +243,15 @@ public class RfsDriver extends VfsDriverWrapper {
   @Override
   public List<CmsProperty> readPropertyObjects(CmsDbContext dbc,
       CmsProject project, CmsResource resource) throws CmsDataAccessException {
-    
+
     if (!isInitialized()) return super.readPropertyObjects(dbc, project, resource);
-      
+
     if (service.isRfsStructureId(resource.getStructureId())) {
       return service.getProperties(resource);
     }
     return super.readPropertyObjects(dbc, project, resource);
   }
-  
+
   @Override
   public List<CmsResource> readResourceTree(CmsDbContext dbc,
       CmsUUID projectId, String parent, int type, CmsResourceState state,
@@ -245,21 +259,33 @@ public class RfsDriver extends VfsDriverWrapper {
       long expiredAfter, long expiredBefore, int mode)
       throws CmsDataAccessException {
 
+    boolean getFiles = ((mode & CmsDriverManager.READMODE_ONLY_FOLDERS) > 0) ? false : true;
+    boolean getFolders = ((mode & CmsDriverManager.READMODE_ONLY_FILES) > 0) ? false : true;
+
     List<CmsResource> result = new ArrayList<CmsResource>();
-    
+
     if (parent == null || "/".equals(parent)) {
-      result.addAll(nextDriver.readResourceTree(dbc, projectId, parent, type, state,
-          startTime, endTime, releasedAfter, releasedBefore, expiredAfter,
-          expiredBefore, mode));
-      Collection<CmsResource> rfsResources =service.getAllRfsResources(); 
-      result.addAll(rfsResources);
+        List<CmsResource> vfsResults = nextDriver.readResourceTree(dbc, projectId, parent, type, state,
+                startTime, endTime, releasedAfter, releasedBefore, expiredAfter,
+                expiredBefore, mode);
+      result.addAll(vfsResults);
+
+      Iterator<CmsResource> rfsResources = service.getAllRfsResources().iterator();
+      while (rfsResources.hasNext()) {
+          CmsResource rfsResource = rfsResources.next();
+          if (rfsResource.getTypeId() == type) {
+              //System.out.println("readResourceTree for / adding rfsResource '" + rfsResource.getRootPath() + "'");
+              result.add(rfsResource);
+          }
+      }
+
     }
     else {
       CmsUUID parentId = null;
       boolean directChildrenOnly = false;
       boolean parentIsRfsResource = false;
       CmsResource parentResource = null;
-      
+
       if ((mode & CmsDriverManager.READMODE_EXCLUDE_TREE) > 0) {
         // parent is a string representation of a UUID and it should only be returned direct children
         directChildrenOnly = true;
@@ -287,18 +313,16 @@ public class RfsDriver extends VfsDriverWrapper {
           }
         }
       }
-  
-      boolean getFiles = ((mode & CmsDriverManager.READMODE_ONLY_FOLDERS) > 0) ? false : true;
-      boolean getFolders = ((mode & CmsDriverManager.READMODE_ONLY_FILES) > 0) ? false : true;
-      
+
+
       if (parentIsRfsResource) {
-        
+
         List<CmsResource> children = service.getChildResources(parentResource, getFolders, getFiles);
-        
+
         if (!directChildrenOnly) {
           for (CmsResource child: children) {
             if (child.isFolder() && getFolders) {
-              result.addAll(readResourceTree(dbc, projectId, child.getStructureId().toString(), type, state, startTime, endTime, 
+              result.addAll(readResourceTree(dbc, projectId, child.getStructureId().toString(), type, state, startTime, endTime,
                   releasedAfter, releasedBefore, expiredAfter, expiredBefore, mode));
             }
           }
@@ -309,14 +333,14 @@ public class RfsDriver extends VfsDriverWrapper {
         result.addAll(nextDriver.readResourceTree(dbc, projectId, parent, type, state,
             startTime, endTime, releasedAfter, releasedBefore, expiredAfter,
             expiredBefore, mode));
-        
+
         if (service.hasChildrenForResource(parentResource)) {
           List<CmsResource> children = service.getChildResources(parentResource, getFolders, getFiles);
-  
+
           if (!directChildrenOnly) {
             for (CmsResource child: children) {
               if (child.isFolder() && getFolders) {
-                result.addAll(readResourceTree(dbc, projectId, child.getStructureId().toString(), type, state, startTime, endTime, 
+                result.addAll(readResourceTree(dbc, projectId, child.getStructureId().toString(), type, state, startTime, endTime,
                     releasedAfter, releasedBefore, expiredAfter, expiredBefore, mode));
               }
             }
@@ -325,29 +349,29 @@ public class RfsDriver extends VfsDriverWrapper {
         }
       }
     }
-    
+
     Collections.sort(result,  CmsResource.COMPARE_ROOT_PATH_IGNORE_CASE_FOLDERS_FIRST);
-    
+
     return result;
   }
-  
+
   @Override
   public List<CmsResource> readResourcesWithProperty(CmsDbContext dbc,
       CmsUUID projectId, CmsUUID propertyDefinition, String path, String value)
       throws CmsDataAccessException {
-    
+
     List<CmsResource> result = new ArrayList<CmsResource>();
     result.addAll(nextDriver.readResourcesWithProperty(dbc, projectId, propertyDefinition,
         path, value));
-    
+
     CmsResource pathRes = readResource(dbc, projectId, path, true);
-    
+
     if (pathRes instanceof RfsCmsFolder || service.hasChildrenForResource(pathRes)) {
       CmsPropertyDefinition pd = getPropertyDefinitions(dbc, projectId, propertyDefinition);
-      
+
       if (pd != null) {
         Set<CmsResource> resources = service.getResourcesByPropertyName(pd.getName());
-        
+
         for (CmsResource res: resources) {
           if (res.getRootPath().startsWith(path)) {
             if (value == null || value.equals(service.getProperty(res, pd.getName()))) {
@@ -357,11 +381,11 @@ public class RfsDriver extends VfsDriverWrapper {
         }
       }
     }
-    
+
     Collections.sort(result,  CmsResource.COMPARE_ROOT_PATH_IGNORE_CASE_FOLDERS_FIRST);
-    
+
     return result;
-    
+
   }
 
   private CmsPropertyDefinition getPropertyDefinitions(CmsDbContext dbc, CmsUUID projectId, CmsUUID pdId) {
@@ -377,15 +401,15 @@ public class RfsDriver extends VfsDriverWrapper {
     }
     return null;
   }
-  
+
   public boolean isInitialized() {
     return true;
   }
-  
+
   public static String getRfsBasePath() {
     return rfsBasePath;
   }
-  
+
   public static CmsConfigurationManager getConfigurationManager() {
     return configurationManager;
   }
@@ -395,31 +419,31 @@ public class RfsDriver extends VfsDriverWrapper {
       CmsConfigurationManager configurationManager,
       List<String> successiveDrivers, CmsDriverManager driverManager)
       throws CmsException {
-    
+
     RfsDriver.configurationManager = configurationManager;
 
     String configPath = OpenCms.getSystemInfo()
         .getAbsoluteRfsPathRelativeToWebInf("config/metamesh_rfs.properties");
-    
+
     try {
       CmsParameterConfiguration configuration = new CmsParameterConfiguration(OpenCms.getSystemInfo()
           .getAbsoluteRfsPathRelativeToWebInf("config/metamesh_rfs.properties"));
-      
+
       config = configuration;
-      
+
       boolean autoSync = config.getBoolean("auto-sync", false);
-      
+
       if (autoSync) {
         OpenCms.getMemoryMonitor().disableCache(CacheType.RESOURCE_LIST);
       }
-      
+
       service = RfsDriverService.newInstance(configurationManager, configPath);
 
     } catch (IOException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
-    
+
     super.init(dbc, configurationManager, successiveDrivers, driverManager);
   }
 }
