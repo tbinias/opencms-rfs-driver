@@ -1,6 +1,6 @@
-/*  
+/*
     Copyright (c) Stephan Hartmann (www.metamesh.de)
-    
+
     This file is part of Metamesh's RFS driver for OpenCms.
 
     Metamesh's RFS driver for OpenCms is free software: you can redistribute it and/or modify
@@ -14,7 +14,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with Metamesh's RFS driver for OpenCms. 
+    along with Metamesh's RFS driver for OpenCms.
     If not, see <http://www.gnu.org/licenses/>.
 
     Diese Datei ist Teil von Metamesh's RFS Treiber für OpenCms.
@@ -80,15 +80,15 @@ import com.metamesh.opencms.rfs.parser.ManifestParser;
 public class RfsDriverService {
 
   CmsConfigurationManager configurationManager;
-  
+
   CmsParameterConfiguration config;
-  
+
   List<MappingData> mappingDatas = new ArrayList<MappingData>();
-  
+
   String configPath;
-  
+
   boolean autoSync;
-  
+
   private class EventListener implements I_CmsEventListener {
 
     @Override
@@ -101,33 +101,33 @@ public class RfsDriverService {
           e.printStackTrace();
         }
       }
-      
+
     }
-    
+
   }
-  
+
   public static RfsDriverService newInstance(CmsConfigurationManager configurationManager,
       String configPath) throws IOException {
-    
+
     RfsDriverService rds = new RfsDriverService();
     rds.configPath = configPath;
     rds.init();
-    
+
     return rds;
   }
-  
+
   private RfsDriverService() {
     OpenCms.getEventManager().addCmsEventListener(new EventListener());
   }
-  
+
   private synchronized void init() throws IOException {
-    
+
     config = new CmsParameterConfiguration(configPath);
-    
+
     autoSync = config.getBoolean("auto-sync", false);
-    
+
     mappingDatas.clear();
-    
+
     List<String> mappings;
     // read mappings inside of webapp folder
     // e.g. "mappings/modules", will add all sub-folders of ${webapp}/mappings/modules/
@@ -138,15 +138,15 @@ public class RfsDriverService {
       if (md != null)
         mappingDatas.addAll(md);
     }
-    
+
     // read mappings outside of webapp
     mappings = config.getList("root-mappings.folder");
-    
+
     // read one-to-one mappings
     mappings = config.getList("root-mapping.webapp-relative");
-    
+
     mappings = config.getList("root-mapping");
-    
+
     // one-2-one-mappings of form "<rfs-path>:<vfs-root-path>"
     // e.g. "mappings/videos:/sites/video-center/videos"
     mappings = config.getList("one-2-one-mapping.webapp-relative");
@@ -157,7 +157,7 @@ public class RfsDriverService {
         if (md != null) mappingDatas.add(md);
       }
     }
-    
+
     mappings = config.getList("one-2-one-mapping");
     for (String mapping: mappings) {
       String[] s = mapping.split(":");
@@ -166,9 +166,9 @@ public class RfsDriverService {
         if (md != null) mappingDatas.add(md);
       }
     }
-    
+
   }
-  
+
   private static MappingData initOne2OneMapping(String rfsPath, String vfsPath, boolean relativeToWebapp) {
 
     File rfsFile = null;
@@ -185,10 +185,10 @@ public class RfsDriverService {
       if (relativeToWebapp) {
         webappBasePath = rfsPath;
       }
-      
+
       MappingData md = new MappingData(rfsFile, webappBasePath, vfsPath);
       md.sync(false);
-      
+
       return md;
     }
     return null;
@@ -197,7 +197,7 @@ public class RfsDriverService {
   private static List<MappingData> initRootFolders(String rfsParentPath, boolean relativeToWebapp) {
 
     List<MappingData> result = new ArrayList<MappingData>();
-    
+
     File dbFolder = null;
     if (relativeToWebapp) {
       String path = OpenCms.getSystemInfo().getAbsoluteRfsPathRelativeToWebApplication(rfsParentPath);
@@ -218,62 +218,62 @@ public class RfsDriverService {
         }
         if (md != null) result.add(md);
       }
-      
+
     }
     return result;
   }
-  
+
 
   private static MappingData initRootFolder(String rfsPath, String vfsMountPath, boolean relativeToWebapp) {
     long startTime = System.currentTimeMillis();
 
     CmsModuleConfiguration mcfg = (CmsModuleConfiguration)RfsDriver
         .getConfigurationManager().getConfiguration(CmsModuleConfiguration.class);
-    
+
     RfsAwareModuleConfiguration ramcfg = null;
     if (mcfg instanceof RfsAwareModuleConfiguration) {
       ramcfg = (RfsAwareModuleConfiguration)mcfg;
     }
-    
+
     // initialization of this object must not fail due to Lazy Holder pattern
     File dbFolder = null;
     try {
       if (relativeToWebapp) {
         String modulesPath = OpenCms.getSystemInfo().getAbsoluteRfsPathRelativeToWebApplication(rfsPath);
         dbFolder = new File(modulesPath);
-        
+
       }
       else {
         // absolute path
         dbFolder = new File(rfsPath);
       }
       if (dbFolder.exists() && dbFolder.isDirectory()) {
-        
+
         String webappBasePath = null;
         if (relativeToWebapp) {
           webappBasePath = rfsPath;
         }
-        
+
         MappingData md = new MappingData(dbFolder, webappBasePath, vfsMountPath);
-        
+
         File manifest = new File(dbFolder, "manifest.xml");
-        
+
         if (manifest.exists()) {
-          
+
           md.setManifestInfo(new ManifestInfo(dbFolder, webappBasePath, manifest, manifest.lastModified()));
           parseDoc(dbFolder, webappBasePath, manifest, md);
 
           CmsModule importedModule = CmsModuleImportExportHandler.readModuleFromImport(dbFolder.getAbsolutePath());
-          
+
           addModuleToManager(importedModule);
 
           if (ramcfg != null) {
             ramcfg.addReadonlyModule(importedModule);
           }
         }
-        
+
         md.sync(false);
-        
+
         return md;
       }
     }
@@ -291,11 +291,11 @@ public class RfsDriverService {
       xr = XMLReaderFactory.createXMLReader();
       ManifestParser mp = new ManifestParser(baseFolder, md);
       xr.setContentHandler(mp);
-      
+
       FileInputStream fis = new FileInputStream(manifest);
-      
+
       xr.parse(new InputSource(fis));
-      
+
       fis.close();
     } catch (SAXException e) {
       // TODO Auto-generated catch block
@@ -309,7 +309,7 @@ public class RfsDriverService {
     }
   }
 
-  
+
   private static void addModuleToManager(CmsModule module) {
     Class clazz = CmsModuleManager.class;
     Field mModules;
@@ -331,11 +331,11 @@ public class RfsDriverService {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
-    
-  }
-  
 
-  
+  }
+
+
+
   public Set<CmsResource> getResourcesByPropertyName(String propertyName) {
     Set<CmsResource> result = new HashSet<CmsResource>();
     for (MappingData md: mappingDatas) {
@@ -343,14 +343,14 @@ public class RfsDriverService {
     }
     return result;
   }
-  
+
   public List<CmsResource> getChildResources(CmsResource resource, boolean getFolders, boolean getFiles) {
-    
+
     //TODO
     //checkManifests();
-    
+
     List<CmsResource> result = null;
-    
+
     // read in files that are not part of the manifest or that are new
     if (resource instanceof RfsCmsFolder) {
       RfsCmsFolder folder = (RfsCmsFolder)resource;
@@ -359,7 +359,7 @@ public class RfsDriverService {
     }
 
     Set<CmsResource> set = new TreeSet<CmsResource>(CmsResource.COMPARE_ROOT_PATH_IGNORE_CASE_FOLDERS_FIRST);
-    
+
     for (MappingData md: mappingDatas) {
       Map<String, List<CmsResource>> resourcesByParent = md.getResourcesByParent();
       if (resourcesByParent.containsKey(resource.getRootPath())) {
@@ -370,14 +370,14 @@ public class RfsDriverService {
         for (CmsResource res: resourcesByParent.get(resource.getRootPath())) {
           if (res != null && (getFiles && res.isFile() || getFolders && res.isFolder())) {
             set.add(res);
-          } 
+          }
         }
       }
     }
     result = new ArrayList<CmsResource>(set);
     return result;
   }
-  
+
   public boolean hasChildrenForResource(CmsResource res) {
     for (MappingData md: mappingDatas) {
       if (md.getResourcesByParent().containsKey(res.getRootPath()))
@@ -385,7 +385,7 @@ public class RfsDriverService {
     }
     return false;
   }
-  
+
   public boolean isRfsStructureId(CmsUUID id) {
     for (MappingData md: mappingDatas) {
       if (md.getResourcesByStructureId().containsKey(id))
@@ -393,7 +393,7 @@ public class RfsDriverService {
     }
     return false;
   }
-  
+
   public boolean isRfsResourceId(CmsUUID id) {
     for (MappingData md: mappingDatas) {
       if (md.getResourcesByResourceId().containsKey(id))
@@ -401,9 +401,9 @@ public class RfsDriverService {
     }
     return false;
   }
-  
+
   public CmsResource getResourceByStructureId(CmsUUID id) {
-    
+
     //TODO
     //checkManifests();
 
@@ -413,7 +413,7 @@ public class RfsDriverService {
     }
     return null;
   }
-  
+
   public CmsResource getResourceByResourceId(CmsUUID id) {
     for (MappingData md: mappingDatas) {
       if (md.getResourcesByResourceId().containsKey(id))
@@ -421,7 +421,7 @@ public class RfsDriverService {
     }
     return null;
   }
-  
+
   public boolean isRfsResource(String path) {
     if (path == null || "/".equals(path)) return false;
 
@@ -433,20 +433,20 @@ public class RfsDriverService {
 
     for (MappingData md: mappingDatas) {
       RfsCmsFolder rootPath = md.getRootPathForSubPath(path);
-      
+
       if (rootPath != null) {
-  
+
         File rfsFile = rootPath.getRfsFile();
         File sub = new File(rfsFile, path.substring(rootPath.getRootPath().length()));
-        
+
         if (sub.exists()) {
-          
+
           String parentPath = CmsResource.getParentFolder(path);
-          
+
           if (!rootPath.getRootPath().equals(path)) {
             isRfsResource(parentPath);
           }
-          
+
           CmsUUID structureUuid = CmsUUID.getConstantUUID(path);
           CmsUUID resourceUuid = structureUuid;
           int flags = 0;
@@ -457,18 +457,18 @@ public class RfsDriverService {
           values.put("source", sourcePath);
           values.put("flags", "0");
           values.put("source", sourcePath);
-    
+
           ResourceCreator rc = new ResourceCreator(md);
           return true;
         }
-        
+
         /*
         boolean autoSync = isAutoSync();
         boolean recursiveSync = isRecursiveSync();
-        
+
         if (autoSync)
           syncFolder(rootPath, recursiveSync);
-        
+
         if (resourcesByPath.containsKey(CmsFileUtil.removeTrailingSeparator(path))) {
           return true;
         }
@@ -480,13 +480,13 @@ public class RfsDriverService {
           // try all base folders
           for (File baseFolder: moduleFolders) {
             File sub = new File(baseFolder, path);
-            
+
             if (sub.exists()) {
-              
+
               String parentPath = CmsResource.getParentFolder(path);
-              
+
               isRfsResource(parentPath);
-              
+
               CmsUUID structureUuid = CmsUUID.getConstantUUID(path);
               CmsUUID resourceUuid = structureUuid;
               int flags = 0;
@@ -497,13 +497,13 @@ public class RfsDriverService {
               addChildToParent(parentPath, res);
               return true;
             }
-            
+
             boolean autoSync = isAutoSync();
             boolean recursiveSync = isRecursiveSync();
-            
+
             //if (autoSync)
               //syncFolder(xxx, recursiveSync);
-            
+
             if (resourcesByPath.containsKey(CmsFileUtil.removeTrailingSeparator(path))) {
               return true;
             }
@@ -514,19 +514,19 @@ public class RfsDriverService {
     }
     return false;
   }
-  
+
   public Collection<CmsResource> getAllRfsResources() {
     Set<CmsResource> allRfsResources = new HashSet<CmsResource>();
     for (MappingData md: mappingDatas) {
-      allRfsResources.addAll(md.getResourcesByPath().values());
+        allRfsResources.addAll(md.getResourcesByPath().values());
     }
     return allRfsResources;
   }
-  
+
   public CmsResource getResourceByPath(String path) {
-    
+
     path = CmsFileUtil.removeTrailingSeparator(path);
-    
+
     for (MappingData md: mappingDatas) {
       if (md.getResourcesByPath().containsKey(path)) {
         return md.getResourcesByPath().get(path);
@@ -534,7 +534,7 @@ public class RfsDriverService {
     }
     return null;
   }
-  
+
   public byte[] readContent(CmsUUID resourceId) {
     CmsResource res = getResourceByResourceId(resourceId);
     if (res != null) {
@@ -550,7 +550,7 @@ public class RfsDriverService {
         fc.close();
         fis.close();
         return buffy.array();
-        
+
       } catch (FileNotFoundException e) {
         // TODO Auto-generated catch block
         e.printStackTrace();
@@ -563,15 +563,15 @@ public class RfsDriverService {
   }
 
   public List<CmsProperty>  getProperties(CmsResource res) {
-    
+
     for (MappingData md: mappingDatas) {
-      
+
       if (md.getResourcesByStructureId().containsKey(res.getStructureId()) && md.getManifestInfo() != null) {
         checkManifest(md);
       }
-      
+
       if (md.getPropertiesByStructureId().containsKey(res.getStructureId())) {
-        
+
         Map<String, String> properties = md.getPropertiesByStructureId().get(res.getStructureId());
         if (properties == null) {
           return Collections.<CmsProperty>emptyList();
@@ -588,19 +588,19 @@ public class RfsDriverService {
     }
     return Collections.<CmsProperty>emptyList();
   }
-  
+
   public CmsProperty getProperty(CmsResource res, String propertyName) {
-    
+
     for (MappingData md: mappingDatas) {
-      
+
       if (md.getResourcesByStructureId().containsKey(res.getStructureId()) && md.getManifestInfo() != null) {
         checkManifest(md);
       }
-      
+
       if (md.getPropertiesByStructureId().containsKey(res.getStructureId())) {
-        
+
         Map<String, String> properties = md.getPropertiesByStructureId().get(res.getStructureId());
-        
+
         if (properties == null || !properties.containsKey(propertyName)) {
           return CmsProperty.getNullProperty();
         }
@@ -614,26 +614,26 @@ public class RfsDriverService {
   }
 
   private void checkManifest(MappingData md) {
-    
+
     boolean changesMade = false;
-    
+
     ManifestInfo mi = md.getManifestInfo();
-    
+
     if (mi != null) {
-        
+
         if (mi.getManifest().lastModified() > mi.getParseDate()) {
 
-          md.setManifestInfo(new ManifestInfo(mi.getModuleFolder(), mi.getWebappBasePath(), 
+          md.setManifestInfo(new ManifestInfo(mi.getModuleFolder(), mi.getWebappBasePath(),
               mi.getManifest(), mi.getManifest().lastModified()));
           parseDoc(mi.getModuleFolder(), mi.getWebappBasePath(), mi.getManifest(), md);
           changesMade = true;
         }
     }
-    
+
     if (changesMade) {
       OpenCms.getMemoryMonitor().flushProperties();
       OpenCms.getMemoryMonitor().flushPropertyLists();
     }
   }
-  
+
 }
